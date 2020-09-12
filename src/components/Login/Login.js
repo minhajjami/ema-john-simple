@@ -1,13 +1,10 @@
 import React, { useContext, useState } from 'react';
-import * as firebase from "firebase/app";
-import "firebase/auth";
-import firebaseConfig from '../../firebase.config';
+
 import { userContext } from '../../App';
 import { useHistory, useLocation } from 'react-router-dom';
+import { createUserWithEmailAndPassword, handleGoogleSignIn, handleSignOut, initializeLoginFramework, signInwithEmailAndPassword } from './LoginManager';
 
-
-
-firebase.initializeApp(firebaseConfig);
+initializeLoginFramework();
 
 function Login() {
   const [newUser,setNewUser]=useState(false);
@@ -24,43 +21,19 @@ function Login() {
   const location = useLocation();
   let { from } = location.state || { from: { pathname: "/" } };
 
-  const provider = new firebase.auth.GoogleAuthProvider();
-
-  const handleSignIn = () => {
-    firebase.auth().signInWithPopup(provider)
-      .then(res => {
-        const { displayName, photoURL, email } = res.user;
-        const signedInUser = {
-          isSignedIn: true,
-          name: displayName,
-          email: email,
-          photo: photoURL
-        }
-        setUser(signedInUser);
-      })
-      .catch(error => {
-        console.log(error);
-        console.log(error.message);
+  const googleSignIn=()=>{
+      handleGoogleSignIn()
+      .then(res=>{
+        handleResponse(res,true);
       })
   }
 
-  const handleSignOut = () => {
-    firebase.auth().signOut()
-      .then(res => {
-        const signedOutUser = {
-          isSignedIn: false,
-          name: '',
-          email: '',
-          photo: '',
-          error:'',
-          success:false
-        }
-        setUser(signedOutUser);
-      })
-      .catch(error => {
-        console.log(error);
-      })
-  }
+  const signOut=()=>{
+    handleSignOut()
+    .then(res=>{
+        handleResponse(res,false);
+    })
+}
 
   const handleBlur=(e)=>{
     
@@ -83,59 +56,34 @@ function Login() {
   const handleSubmit=(e)=>{
 
     if(newUser && user.email && user.password){
-      firebase.auth().createUserWithEmailAndPassword(user.email, user.password)
+      createUserWithEmailAndPassword(user.name,user.email,user.password)
       .then(res=>{
-        const newUserInfo={...user};
-        newUserInfo.error='';
-        newUserInfo.success=true;
-        setUser(newUserInfo);
-        updateUserName(user.name);
+        handleResponse(res,true);
       })
-      .catch(error=> {
-        const newUserInfo={...user};
-        newUserInfo.error=error.message;
-        newUserInfo.success=false;
-        setUser(newUserInfo);
-      });
     }
 
     if(!newUser && user.email && user.password){
-      firebase.auth().signInWithEmailAndPassword(user.email, user.password)
-      .then(res=>{
-        const newUserInfo={...user};
-        newUserInfo.error='';
-        newUserInfo.success=true;
-        setUser(newUserInfo);
-        SetLoggedInUser(newUserInfo);
-        history.replace(from);
-      })
-      .catch(error=> {
-        const newUserInfo={...user};
-        newUserInfo.error=error.message;
-        newUserInfo.success=false;
-        setUser(newUserInfo);
-      });
+        signInwithEmailAndPassword(user.email,user.password)
+        .then(res=>{
+            handleResponse(res,true);
+          })
     }
-
     e.preventDefault();
   }
 
-  const updateUserName=name=>{
-    const user = firebase.auth().currentUser;
-    user.updateProfile({
-      displayName: name
-    }).then(function() {
-      console.log('update name successfully');
-    }).catch(function(error) {
-      console.log(error);
-    })
+  const handleResponse=(res,redirect)=>{
+    setUser(res);
+    SetLoggedInUser(res);
+    if(redirect){
+        history.replace(from);
+    }
   }
 
   return (
     <div style={{textAlign:'center'}}>
       {
-        user.isSignedIn ? <button onClick={handleSignOut}>Sign Out</button> :
-          <button onClick={handleSignIn}>Sign in</button>
+        user.isSignedIn ? <button onClick={signOut}>Sign Out</button> :
+          <button onClick={googleSignIn}>Sign in</button>
       }
       {
         user.isSignedIn && <div>
